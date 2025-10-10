@@ -15,9 +15,9 @@ import numpy as np
 
 app = Flask(__name__)
 
-# Load YOLOX model (smallest variant for speed, swap for custom weights if needed)
-YOLOX_MODEL = "yolox_s"
-YOLOX_WEIGHTS = "yolox_s.pth"  # Download from official YOLOX releases if needed
+# Use YOLOX-nano for production speed and minimal resource usage
+YOLOX_MODEL = "yolox_nano"
+YOLOX_WEIGHTS = "yolox_nano.pth"  # Download from YOLOX official releases
 
 # Load experiment and model
 exp = get_exp(f"exps/default/{YOLOX_MODEL}.py", None)
@@ -26,7 +26,7 @@ ckpt = torch.load(YOLOX_WEIGHTS, map_location="cpu")
 model.load_state_dict(ckpt["model"])
 model.eval()
 
-# Class names (COCO)
+# COCO classes (for nano, fine for football MVP)
 COCO_CLASSES = (
     "person", "bicycle", "car", "motorcycle", "airplane", "bus",
     "train", "truck", "boat", "traffic light", "fire hydrant", "stop sign",
@@ -62,7 +62,7 @@ def detect_football_objects(image):
             x0, y0, x1, y1, score, cls_id = det
             cls_id = int(cls_id)
             label = COCO_CLASSES[cls_id]
-            if label not in ["person", "sports ball"]:  # Only detect players and ball for football
+            if label not in ["person", "sports ball"]:  # Focus on players and ball
                 continue
             bbox = [int(x0), int(y0), int(x1), int(y1)]
             detections.append({
