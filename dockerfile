@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Clone YOLOX repo and install package
+# Clone YOLOX repo and install as package
 RUN git clone https://github.com/Megvii-BaseDetection/YOLOX.git /app/yolox
 RUN pip install -U pip && pip install -r /app/yolox/requirements.txt
 RUN pip install -v -e /app/yolox
