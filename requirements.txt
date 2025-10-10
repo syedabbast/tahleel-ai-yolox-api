@@ -2,5 +2,6 @@ flask
 torch
 opencv-python
 Pillow
+-e ./yolox
 requests
 # Add YOLOX and dependencies as needed
