@@ -1,21 +1,14 @@
 """
 Google Cloud Storage Helper for TAHLEEL.ai
 Production-ready GCS integration for video/frame/results upload/download.
-
-Usage:
-- Upload match videos, frames, and results to tahleel-ai-videos bucket
-- Download objects for processing
 """
 
 import os
 from google.cloud import storage
 
-# Configure GCS from environment variables
 GCS_BUCKET_NAME = os.environ.get("GCS_BUCKET_NAME", "tahleel-ai-videos")
-GCS_CREDENTIALS = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "service-account.json")
 
 def get_gcs_client():
-    # If running in GCP, credentials are auto-discovered
     return storage.Client()
 
 def upload_file(local_path, gcs_path, bucket_name=None):
@@ -24,7 +17,7 @@ def upload_file(local_path, gcs_path, bucket_name=None):
     bucket = client.bucket(bucket_name)
     blob = bucket.blob(gcs_path)
     blob.upload_from_filename(local_path)
-    blob.make_public()  # Optional: remove for private files
+    blob.make_public()
     return blob.public_url
 
 def upload_bytes(data, gcs_path, bucket_name=None):
@@ -56,9 +49,3 @@ def get_signed_url(gcs_path, expires=3600, bucket_name=None):
     bucket = client.bucket(bucket_name)
     blob = bucket.blob(gcs_path)
     return blob.generate_signed_url(expiration=expires)
-
-# Example usage
-if __name__ == "__main__":
-    # Upload a test file
-    url = upload_file("example.mp4", "videos/example.mp4")
-    print("Uploaded file URL:", url)
