@@ -3,4 +3,3 @@ torch
 opencv-python
 Pillow
 requests
-# Add YOLOX and dependencies as needed
