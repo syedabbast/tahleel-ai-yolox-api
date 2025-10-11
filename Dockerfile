@@ -13,19 +13,19 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Clone YOLOX repo directly into the working directory
+# Copy your source code first!
+COPY . .
+
+# NOW clone YOLOX repo into the working directory
 RUN git clone https://github.com/Megvii-BaseDetection/YOLOX.git yolox
 
 # Install YOLOX requirements
 RUN pip install -r yolox/requirements.txt
 
-# Install YOLOX as an editable package
+# Install YOLOX as editable package
 RUN pip install -e yolox
 
-# Copy your API and requirements into the SAME directory
-COPY requirements.txt .
-COPY app.py .
-
+# Install your requirements
 RUN pip install -r requirements.txt
 
 # Download YOLOX nano weights if not present
@@ -35,7 +35,6 @@ RUN if [ ! -f yolox_nano.pth ]; then \
 
 EXPOSE 10000
 
-# Set PYTHONPATH so Python can find yolox
 ENV PYTHONPATH="${PYTHONPATH}:/opt/render/project/src/yolox"
 
 CMD ["python", "app.py"]
