@@ -1,6 +1,6 @@
 FROM python:3.10-slim
 
-WORKDIR /app
+WORKDIR /opt/render/project/src
 
 # System dependencies for YOLOX and OpenCV
 RUN apt-get update && apt-get install -y \
@@ -13,12 +13,14 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Clone YOLOX repo and install as Python package
-RUN git clone https://github.com/Megvii-BaseDetection/YOLOX.git /app/yolox
-RUN pip install -r /app/yolox/requirements.txt
-RUN pip install -e /app/yolox
+# Clone YOLOX repo into the same directory as app.py
+RUN git clone https://github.com/Megvii-BaseDetection/YOLOX.git yolox
 
-# Copy your API files (AFTER YOLOX install to avoid path issues)
+# Install YOLOX requirements and package
+RUN pip install -r yolox/requirements.txt
+RUN pip install -e yolox
+
+# Copy your API files
 COPY requirements.txt .
 COPY app.py .
 
@@ -30,5 +32,8 @@ RUN if [ ! -f yolox_nano.pth ]; then \
     fi
 
 EXPOSE 10000
+
+# Explicitly set PYTHONPATH so Python can find yolox
+ENV PYTHONPATH="${PYTHONPATH}:/opt/render/project/src/yolox"
 
 CMD ["python", "app.py"]
