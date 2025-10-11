@@ -1,11 +1,11 @@
-# TAHLEEL.ai Backend - GCP Cloud Run Dockerfile
-# Project: tahleel-ai-video-analysis
+# TAHLEEL.ai Backend - GCP Cloud Run Dockerfile (Production Grade)
+# Author: Syed (Auwire Technologies)
 
 FROM python:3.10-slim
 
 WORKDIR /app
 
-# System dependencies for YOLOX, OpenCV, Pillow
+# System dependencies for CV/AI
 RUN apt-get update && apt-get install -y \
     build-essential \
     libglib2.0-0 \
@@ -19,21 +19,22 @@ RUN apt-get update && apt-get install -y \
 # Clone YOLOX repo into /app/yolox
 RUN git clone https://github.com/Megvii-BaseDetection/YOLOX.git yolox
 
-# Install YOLOX requirements and package
+# Install YOLOX requirements & package
 RUN pip install -r yolox/requirements.txt
 RUN pip install -e yolox
 
-# Copy your API files
+# Copy API files
 COPY requirements.txt .
 COPY app.py .
 COPY gcs_helper.py .
 
 # Install API dependencies
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Download YOLOX-nano weights (overwrite if needed)
+# Download YOLOX-nano weights
 RUN curl -L -o yolox_nano.pth https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1/yolox_nano.pth
 
 EXPOSE 8080
 
-CMD ["python", "app.py"]
+# Use Gunicorn for production
+CMD ["gunicorn", "-b", "0.0.0.0:8080", "app:app"]
