@@ -1,156 +1,120 @@
-# TAHLEEL.ai YOLOX API Microservice
+# TAHLEEL.ai GCP Cloud Run Backend
 
-**Production-Ready YOLOX REST API for Football Video Analysis**  
-_Auwire Technologies | Arab League Tactical Intelligence Platform_
-
----
-
-## 🚀 Overview
-
-This repository provides a **Flask-based REST API** for running YOLOX object detection on football match frames.  
-It is designed to be deployed as a **microservice on Render** (or similar cloud platform) and integrated with the TAHLEEL.ai backend for real-time tactical analysis.
-
-- **Detects:** Players, ball, kit colors, formation shape (with post-processing)
-- **Endpoint:** `/detect` — Accepts image URL, returns detection results in JSON
-- **Integration:** Node.js backend calls API for each extracted frame
-- **Deployment:** Dockerfile included for cloud-native deployment
+**Project:** tahleel-ai-video-analysis  
+**Owner:** Syed (Auwire Technologies)  
+**Purpose:** Production-ready Python backend for tactical video analysis (GPT Vision, YOLOX, Claude AI) on GCP  
+**Critical:** No mock data—REAL video, REAL analysis, REAL business value
 
 ---
 
-## 📦 File Structure
+## 🚀 Quick Start
+
+### 1. **Prepare Your Repo**
+
+Copy these files into your backend folder:
+- `Dockerfile`
+- `requirements.txt`
+- `app.py`
+- `gcs_helper.py`
+- `.env.example` (copy as `.env` and fill secrets)
+
+---
+
+### 2. **Setup GCP Project & Bucket**
+
+- **Project:** `tahleel-ai-video-analysis`  
+- **Bucket:** `tahleel-ai-videos` (already created, see Image 1)
+
+If you need a service account:
+- Go to IAM & Admin → Service Accounts
+- Create a new account with "Storage Object Admin" role
+- Download the JSON key file (use for local dev only)
+
+---
+
+### 3. **GCP Console UI Deployment (No CLI needed)**
+
+#### **A. Build and Deploy Container**
+
+1. Go to [Cloud Run](https://console.cloud.google.com/run) in your GCP project.
+2. Click **"Create Service"**.
+3. Choose **"Deploy one revision from source"** → Select "Container" → "Upload source code".
+4. Upload your backend folder with all files.
+5. Set the service name: `tahleel-ai-backend`
+6. Set region: `us-central1`
+7. Set **port to 8080** (default for Cloud Run).
+8. Set environment variables from `.env` (GCS bucket, model paths, API keys).
+9. Click **"Deploy"**.
+
+---
+
+#### **B. Configure Permissions**
+
+- Allow **unauthenticated invocations** for public API
+- If using service account, attach it in the Cloud Run service settings
+
+---
+
+### 4. **Testing Endpoints**
+
+- Get the HTTPS endpoint from Cloud Run console (e.g., `https://tahleel-ai-backend-xxxxx.a.run.app`)
+- Test `/health` endpoint:
+  ```bash
+  curl https://tahleel-ai-backend-xxxxx.a.run.app/health
+  ```
+- Test `/upload` and `/analyze` with Postman or frontend
+
+---
+
+### 5. **Integrate with Node.js Backend**
+
+- Update your Node API orchestration endpoint to call the new Cloud Run URL for analysis.
+- Use GCS URLs for video uploads/processing.
+
+---
+
+### 6. **Production Notes**
+
+- **No mock data**—all endpoints run real analysis.
+- **Analysis results** should be stored in Supabase as per business workflow.
+- **Security:** Use JWT, CORS, and GCS IAM for production.
+- **Performance:** Target ≤5 min per video, ≥80% formation accuracy.
+
+---
+
+## 📂 File Structure
 
 ```
 /
-├── app.py                # Main Flask API application
-├── requirements.txt      # Python dependencies
-├── Dockerfile            # Container build for Render/AWS/Cloud
-├── README.md             # This documentation
-└── yolox_s.pth           # YOLOX model weights (downloaded at build/run)
+├── Dockerfile
+├── requirements.txt
+├── app.py
+├── gcs_helper.py
+├── .env.example
 ```
 
 ---
 
-## 🔧 Setup & Installation
+## 🏆 Critical Standards
 
-### 1. **Clone the Repository**
-
-```bash
-git clone https://github.com/your-org/tahleel-ai-yolox-api.git
-cd tahleel-ai-yolox-api
-```
-
-### 2. **YOLOX Model Weights**
-
-- **Download weights:**  
-  Download `yolox_s.pth` from [YOLOX Official Releases](https://github.com/Megvii-BaseDetection/YOLOX/releases).
-- **Place in repo root** (or see Dockerfile for auto-download).
-
-### 3. **Install Python Dependencies**
-
-```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
-
-### 4. **Run Locally (for testing)**
-
-```bash
-python app.py
-# API will run on http://localhost:10000
-```
+- **Business Value:** All code delivers tactical advantage for Arab League teams.
+- **Reliability:** 99% uptime, 5-min analysis speed.
+- **Scalability:** Supports multiple coaches, 10TB+ video storage.
+- **Security:** Role-based access, JWT, no public exposure of sensitive data.
 
 ---
 
-## 🚀 Deployment (Render Cloud)
+## 🚨 Support
 
-### **Using Dockerfile**
-
-1. **Push to GitHub**  
-   Ensure `app.py`, `requirements.txt`, `Dockerfile` are in repo root.
-
-2. **Connect Render Service**  
-   Create a new **Web Service** on Render, select this GitHub repo.
-
-3. **Configure:**
-   - **Build Command:** _Not needed (Dockerfile handles build)_
-   - **Start Command:** _Not needed (Dockerfile CMD used)_
-   - **Environment:** Python 3.10+ (Dockerfile sets base)
-   - **Port:** `10000`
-   - **Model Weights:**  
-     By default, weights are downloaded at build. For custom weights, upload manually or adjust Dockerfile.
+- Email: support@tahleel.ai
+- Docs: https://docs.tahleel.ai
+- Owner: Syed (Auwire Technologies)
 
 ---
 
-## 🛡️ API Reference
+## ❗ Final Reminder
 
-### **POST /detect**
-
-- **Description:** Run YOLOX detection on a football frame
-- **Request:**
-  ```json
-  {
-    "image_url": "https://your-public-frame-url.jpg"
-  }
-  ```
-- **Response:**
-  ```json
-  {
-    "success": true,
-    "detections": [
-      {
-        "label": "person",
-        "bbox": [x0, y0, x1, y1],
-        "score": 0.97
-      },
-      {
-        "label": "sports ball",
-        "bbox": [x0, y0, x1, y1],
-        "score": 0.83
-      }
-    ],
-    "frame_url": "https://your-public-frame-url.jpg"
-  }
-  ```
-- **Health Check:**  
-  `GET /health` returns status and model info.
-
----
-
-## ⚙️ Environment Variables (Optional)
-
-- `YOLOX_WEIGHTS_URL` — Custom URL for weights download (if not using default)
-- `PORT` — API server port (default: `10000`)
-
----
-
-## 🏆 Production Tips
-
-- **Do NOT commit large weights to GitHub.**  
-  Use Dockerfile to download or upload via Render dashboard.
-- **Ensure public image URLs.**  
-  API cannot access private storage or local files.
-- **Monitor logs on Render.**  
-  For debugging and model inference errors.
-- **Scale service:**  
-  For heavy workloads, use GPU instance or autoscaling.
-
----
-
-## 📄 License
-
-Proprietary © 2025 Auwire Technologies — For use with TAHLEEL.ai only.
-
----
-
-## 🛠️ Support
-
-- [support@tahleel.ai](mailto:support@tahleel.ai)
-- [docs.tahleel.ai](https://docs.tahleel.ai)
-
----
-
-## 🔗 References
-
-- [YOLOX GitHub](https://github.com/Megvii-BaseDetection/YOLOX)
-- [TAHLEEL.ai Backend](https://github.com/your-org/tahleel-ai-engine-backend)
+**NO MOCK DATA.  
+NO PROTOTYPES.  
+REAL AI, REAL ANALYSIS, REAL BUSINESS VALUE.  
+LAUNCH-READY FOR ARAB LEAGUE.**
