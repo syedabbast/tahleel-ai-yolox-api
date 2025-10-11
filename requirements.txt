@@ -1,4 +1,6 @@
 flask
+gunicorn
+google-cloud-storage
 torch
 opencv-python
 Pillow
