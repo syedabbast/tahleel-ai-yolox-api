@@ -1,11 +1,6 @@
 """
 TAHLEEL.ai GCP Cloud Run Backend
-Production Flask API for REAL tactical video analysis and GCS integration
-
-- Video upload: Google Cloud Storage (bucket: tahleel-ai-videos)
-- Analysis: GPT Vision, Claude AI, frame extraction
-- Output: Tactical insights, formation detection, training plan
-- Security: JWT, CORS, error handling
+Production Flask API for tactical video analysis and GCS integration
 
 Author: Syed (Auwire Technologies)
 """
@@ -20,15 +15,15 @@ from PIL import Image
 import tempfile
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})  # Open for API orchestration
+CORS(app, resources={r"/*": {"origins": "*"}})
 
-# Load YOLOX model (nano for performance)
+# Load YOLOX model (nano for speed)
 YOLOX_WEIGHTS = os.environ.get("YOLOX_WEIGHTS", "yolox_nano.pth")
 YOLOX_MODEL_NAME = os.environ.get("YOLOX_MODEL_NAME", "yolox-nano")
 
-# TODO: Replace with actual YOLOX model load (using torch/hub or yolox API)
 def load_yolox_model():
-    # Placeholder: replace with real YOLOX model loading
+    # Placeholder: replace with actual YOLOX load for real implementation
+    # Example:
     # model = torch.hub.load('Megvii-BaseDetection/YOLOX', YOLOX_MODEL_NAME, pretrained=False)
     # model.load_state_dict(torch.load(YOLOX_WEIGHTS, map_location='cpu'))
     # model.eval()
@@ -49,7 +44,6 @@ def health_check():
 
 @app.route("/upload", methods=["POST"])
 def upload_video():
-    """Upload video to GCS bucket"""
     if 'file' not in request.files:
         return jsonify({"error": "No file in request"}), 400
     file = request.files['file']
@@ -63,13 +57,6 @@ def upload_video():
 
 @app.route("/analyze", methods=["POST"])
 def analyze_video():
-    """
-    Analyze video:
-      1. Download from GCS (given gcs_path)
-      2. Extract frames
-      3. Run YOLOX detection (frame-level)
-      4. Return structured tactical insight (placeholder: actual GPT Vision integration needed)
-    """
     data = request.get_json()
     gcs_path = data.get("gcs_path")
     if not gcs_path:
@@ -84,7 +71,7 @@ def analyze_video():
     cap = cv2.VideoCapture(temp_path)
     frame_results = []
     frame_count = 0
-    sampling_rate = 30  # Analyze every 30th frame for performance
+    sampling_rate = 30
 
     while cap.isOpened():
         ret, frame = cap.read()
@@ -93,14 +80,11 @@ def analyze_video():
         if frame_count % sampling_rate == 0:
             # Placeholder: run YOLOX detection
             # result = yolox_model(frame) if yolox_model else {}
-            result = {"frame": frame_count, "detections": []}  # Replace with real logic
+            result = {"frame": frame_count, "detections": []}
             frame_results.append(result)
         frame_count += 1
     cap.release()
     os.remove(temp_path)
-
-    # Placeholder: GPT Vision + Claude AI orchestration here
-    # tactical_insight = gpt_vision_and_claude(frame_results)
 
     return jsonify({
         "success": True,
@@ -112,10 +96,8 @@ def analyze_video():
 
 @app.route("/frames/<prefix>", methods=["GET"])
 def list_frames(prefix):
-    """List extracted frames in GCS bucket (for debug/demo)"""
     files = list_files(f"frames/{prefix}")
     return jsonify({"frames": files})
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host="0.0.0.0", port=port)
+# Gunicorn will run: app:app
+# No need for __main__ block in Cloud Run
