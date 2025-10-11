@@ -9,24 +9,19 @@ import torch
 from yolox.exp import get_exp
 from yolox.utils import postprocess
 from yolox.data.data_augment import preproc
-from yolox.models import YOLOX
-import cv2
-import numpy as np
 
 app = Flask(__name__)
 
-# Use YOLOX-nano for production speed and minimal resource usage
 YOLOX_MODEL = "yolox_nano"
-YOLOX_WEIGHTS = "yolox_nano.pth"  # Download from YOLOX official releases
+YOLOX_WEIGHTS = "yolox_nano.pth"
 
-# Load experiment and model
+# Load YOLOX-nano experiment and model
 exp = get_exp(f"exps/default/{YOLOX_MODEL}.py", None)
 model = exp.get_model()
 ckpt = torch.load(YOLOX_WEIGHTS, map_location="cpu")
 model.load_state_dict(ckpt["model"])
 model.eval()
 
-# COCO classes (for nano, fine for football MVP)
 COCO_CLASSES = (
     "person", "bicycle", "car", "motorcycle", "airplane", "bus",
     "train", "truck", "boat", "traffic light", "fire hydrant", "stop sign",
@@ -45,24 +40,22 @@ COCO_CLASSES = (
 def get_image_from_url(url):
     response = requests.get(url)
     img = Image.open(io.BytesIO(response.content)).convert("RGB")
-    return np.array(img)
+    return img
 
 def detect_football_objects(image):
-    # Preprocess image
+    image = np.array(image)
     img, ratio = preproc(image, exp.test_size, swap=(2, 0, 1))
     img = torch.from_numpy(img).unsqueeze(0)
-    
     with torch.no_grad():
         outputs = model(img)
         outputs = postprocess(outputs, exp.num_classes, exp.test_conf, exp.nmsthre)
-    
     detections = []
     if outputs[0] is not None:
         for det in outputs[0].cpu():
             x0, y0, x1, y1, score, cls_id = det
             cls_id = int(cls_id)
             label = COCO_CLASSES[cls_id]
-            if label not in ["person", "sports ball"]:  # Focus on players and ball
+            if label not in ["person", "sports ball"]:
                 continue
             bbox = [int(x0), int(y0), int(x1), int(y1)]
             detections.append({
@@ -76,21 +69,12 @@ def detect_football_objects(image):
 def detect():
     data = request.get_json()
     image_url = data.get("image_url")
-
     if not image_url:
         return jsonify({"success": False, "error": "Missing image_url"}), 400
-    
     try:
         image = get_image_from_url(image_url)
         detections = detect_football_objects(image)
-        # Optional: Add color detection logic here (e.g., team kit color clustering)
-        # Optional: Estimate formation from spatial distribution of players
-
-        return jsonify({
-            "success": True,
-            "detections": detections,
-            "frame_url": image_url
-        })
+        return jsonify({"success": True, "detections": detections, "frame_url": image_url})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
@@ -99,4 +83,4 @@ def health():
     return jsonify({"status": "healthy", "model": YOLOX_MODEL})
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
