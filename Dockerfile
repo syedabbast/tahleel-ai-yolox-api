@@ -1,8 +1,11 @@
+# TAHLEEL.ai YOLOX API - Heroku Production Dockerfile
+# Purpose: Clones YOLOX, installs YOLOX & dependencies, runs Flask API
+
 FROM python:3.10-slim
 
 WORKDIR /app
 
-# System dependencies for YOLOX and OpenCV
+# System dependencies required for YOLOX, OpenCV, Pillow
 RUN apt-get update && apt-get install -y \
     build-essential \
     libglib2.0-0 \
@@ -13,8 +16,10 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Clone YOLOX repo and install as package
+# Clone YOLOX repo into /app/yolox
 RUN git clone https://github.com/Megvii-BaseDetection/YOLOX.git yolox
+
+# Install YOLOX requirements and package
 RUN pip install -r yolox/requirements.txt
 RUN pip install -e yolox
 
@@ -22,10 +27,13 @@ RUN pip install -e yolox
 COPY requirements.txt .
 COPY app.py .
 
+# Install API dependencies
 RUN pip install -r requirements.txt
 
-# Download yolox_nano.pth weights if needed
+# Download YOLOX-nano weights (production, overwrite if needed)
 RUN curl -L -o yolox_nano.pth https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1/yolox_nano.pth
 
 EXPOSE 10000
+
+# Heroku sets $PORT; use it if present
 CMD ["python", "app.py"]
