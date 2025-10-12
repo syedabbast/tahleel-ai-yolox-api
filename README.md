@@ -93,6 +93,35 @@ If you need a service account:
 ├── .env.example
 ```
 
+Structure
+tahleel-ai-yolox-api/
+├── main.py                      # FastAPI entry point, defines API endpoints
+├── requirements.txt             # Python dependencies (see previous code)
+├── Dockerfile                   # Containerization for Cloud Run/Render
+├── .dockerignore                # Ignore files for Docker build
+├── .gitignore                   # Git ignore file
+├── README.md                    # Documentation, setup, API usage
+│
+├── components/                  # Core business logic modules
+│   ├── __init__.py
+│   ├── frame_extractor.py       # Frame extraction: OpenCV, GCS upload
+│   ├── yolox_detector.py        # YOLOX-S detection, team color clustering, tracking
+│   └── tactical_processor.py    # Converts detection to tactical JSON
+│
+├── models/
+│   └── download_weights.py      # Downloads YOLOX-S weights for inference
+│
+├── utils/                       # Utility modules
+│   ├── __init__.py
+│   ├── cloud_storage.py         # GCS integration: upload/download files
+│   └── validators.py            # Video validation: format, length, size
+│
+├── tests/                       # Automated test suite
+│   └── test_api.py              # API endpoint tests (pytest)
+│
+└── .env.example                 # Example environment variables (GCS, API keys, etc.)
+
+
 ---
 
 ## 🏆 Critical Standards
