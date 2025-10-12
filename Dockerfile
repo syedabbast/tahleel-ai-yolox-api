@@ -1,40 +1,37 @@
-# TAHLEEL.ai Backend - GCP Cloud Run Dockerfile (Production Grade)
-# Author: Syed (Auwire Technologies)
+# TAHLEEL.ai YOLOX Tactical Analysis API - Dockerfile
+# Production-ready container for FastAPI backend (NO MOCK DATA)
 
 FROM python:3.10-slim
 
+# Set working directory
 WORKDIR /app
 
-# System dependencies for CV/AI
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    libglib2.0-0 \
-    libsm6 \
-    libxrender-dev \
-    libxext6 \
-    git \
-    curl \
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        ffmpeg \
+        libsm6 \
+        libxext6 \
     && rm -rf /var/lib/apt/lists/*
 
-# Clone YOLOX repo into /app/yolox
-RUN git clone https://github.com/Megvii-BaseDetection/YOLOX.git yolox
-
-# Install YOLOX requirements & package
-RUN pip install -r yolox/requirements.txt
-RUN pip install -e yolox
-
-# Copy API files
+# Copy requirements and install
 COPY requirements.txt .
-COPY app.py .
-COPY gcs_helper.py .
+RUN pip install --upgrade pip
+RUN pip install -r requirements.txt
 
-# Install API dependencies - CRITICAL: flask_cors and other dependencies for app.py
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy app code
+COPY . .
 
-# Download YOLOX-nano weights
-RUN curl -L -o yolox_nano.pth https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1/yolox_nano.pth
+# Download YOLOX-S weights (if not present)
+RUN mkdir -p models && \
+    python models/download_weights.py || true
 
-EXPOSE 8080
+# Expose FastAPI port
+EXPOSE 8000
 
-# Use Gunicorn for production
-CMD ["gunicorn", "-b", "0.0.0.0:8080", "app:app"]
+# Set environment variables for GCS/Supabase if needed
+ENV PYTHONUNBUFFERED=1
+
+# Run FastAPI app
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
