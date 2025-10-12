@@ -28,7 +28,7 @@ COPY requirements.txt .
 COPY app.py .
 COPY gcs_helper.py .
 
-# Install API dependencies
+# Install API dependencies - CRITICAL: flask_cors and other dependencies for app.py
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Download YOLOX-nano weights
