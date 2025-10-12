@@ -1,149 +1,185 @@
-# TAHLEEL.ai GCP Cloud Run Backend
+# TAHLEEL.ai YOLOX Tactical Analysis API
 
-**Project:** tahleel-ai-video-analysis  
-**Owner:** Syed (Auwire Technologies)  
-**Purpose:** Production-ready Python backend for tactical video analysis (GPT Vision, YOLOX, Claude AI) on GCP  
-**Critical:** No mock data—REAL video, REAL analysis, REAL business value
+**Production-Ready FastAPI Backend for Arab League Tactical Analysis — NO MOCK DATA**
 
 ---
 
-## 🚀 Quick Start
+## Overview
 
-### 1. **Prepare Your Repo**
+TAHLEEL.ai is an enterprise-grade football tactical analysis platform for Arab League teams, providing **real-time match video analysis** using YOLOX-S, Google Cloud Storage, and Claude AI. This backend processes real match videos, extracts frames, detects players/formations, and generates actionable tactical insights in ≤5 minutes.
 
-Copy these files into your backend folder:
-- `Dockerfile`
-- `requirements.txt`
-- `app.py`
-- `gcs_helper.py`
-- `.env.example` (copy as `.env` and fill secrets)
+**Business Context:**  
+- Real Arab League coaches ($15K-$45K/month)  
+- 99% uptime, ≤5 min analysis, ≥80% formation accuracy  
+- No mock data – only real video, real analysis
 
 ---
 
-### 2. **Setup GCP Project & Bucket**
+## Features
 
-- **Project:** `tahleel-ai-video-analysis`  
-- **Bucket:** `tahleel-ai-videos` (already created, see Image 1)
-
-If you need a service account:
-- Go to IAM & Admin → Service Accounts
-- Create a new account with "Storage Object Admin" role
-- Download the JSON key file (use for local dev only)
-
----
-
-### 3. **GCP Console UI Deployment (No CLI needed)**
-
-#### **A. Build and Deploy Container**
-
-1. Go to [Cloud Run](https://console.cloud.google.com/run) in your GCP project.
-2. Click **"Create Service"**.
-3. Choose **"Deploy one revision from source"** → Select "Container" → "Upload source code".
-4. Upload your backend folder with all files.
-5. Set the service name: `tahleel-ai-backend`
-6. Set region: `us-central1`
-7. Set **port to 8080** (default for Cloud Run).
-8. Set environment variables from `.env` (GCS bucket, model paths, API keys).
-9. Click **"Deploy"**.
+- **FastAPI API** — `/analyze`, `/health`, `/results/{video_id}`
+- **Video upload & validation** (format, size, duration)
+- **Frame extraction** (OpenCV, 5 FPS, 1280x720)
+- **YOLOX-S detection** (players, ball, team color clustering, tracking)
+- **Tactical JSON generation** (formations, weaknesses, recommendations)
+- **Dual save** — Results to **Google Cloud Storage** and **Supabase**
+- **Enterprise error handling & security**
+- **Automated testing** (pytest, httpx)
+- **Production-ready Dockerfile**
 
 ---
 
-#### **B. Configure Permissions**
-
-- Allow **unauthenticated invocations** for public API
-- If using service account, attach it in the Cloud Run service settings
-
----
-
-### 4. **Testing Endpoints**
-
-- Get the HTTPS endpoint from Cloud Run console (e.g., `https://tahleel-ai-backend-xxxxx.a.run.app`)
-- Test `/health` endpoint:
-  ```bash
-  curl https://tahleel-ai-backend-xxxxx.a.run.app/health
-  ```
-- Test `/upload` and `/analyze` with Postman or frontend
-
----
-
-### 5. **Integrate with Node.js Backend**
-
-- Update your Node API orchestration endpoint to call the new Cloud Run URL for analysis.
-- Use GCS URLs for video uploads/processing.
-
----
-
-### 6. **Production Notes**
-
-- **No mock data**—all endpoints run real analysis.
-- **Analysis results** should be stored in Supabase as per business workflow.
-- **Security:** Use JWT, CORS, and GCS IAM for production.
-- **Performance:** Target ≤5 min per video, ≥80% formation accuracy.
-
----
-
-## 📂 File Structure
+## Architecture
 
 ```
-/
-├── Dockerfile
-├── requirements.txt
-├── app.py
-├── gcs_helper.py
-├── .env.example
+React Frontend (Netlify) → FastAPI Backend (Render/Cloud Run)
+   |
+   → GCS (video, frames, results)
+   → Supabase (analysis results, user base)
+   → Claude AI (tactical insights)
 ```
 
-Structure
+---
+
+## Setup
+
+### 1. Clone Repo
+
+```bash
+git clone https://github.com/your-org/tahleel-ai-yolox-api.git
+cd tahleel-ai-yolox-api
+```
+
+### 2. Install Dependencies
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 3. Configure Environment Variables
+
+Create `.env` file or use GCP default credentials.
+
+```env
+GCS_BUCKET=tahleel-ai-videos
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_KEY=your-service-role-key
+```
+
+### 4. Download YOLOX-S Weights
+
+Place `yolox_s.pth` in `models/` or run:
+
+```bash
+python models/download_weights.py
+```
+
+### 5. Run FastAPI Locally
+
+```bash
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
+
+---
+
+## Docker Deployment
+
+### Build & Run
+
+```bash
+docker build -t tahleel-ai-yolox-api .
+docker run --env-file .env -p 8000:8000 tahleel-ai-yolox-api
+```
+
+### Cloud Run/Render
+
+- Configure build command: `docker build ...`
+- Set environment variables in dashboard
+- Expose port 8000
+
+---
+
+## API Reference
+
+### POST `/analyze`  
+Upload and analyze video.  
+**Request:** `multipart/form-data` (field: `video_file`), Bearer token required.
+
+**Response:**  
+```json
+{
+  "status": "success",
+  "video_id": "...",
+  "teams": {...},
+  "tactical_analysis": {...},
+  "player_analysis": [...],
+  "team_metrics": {...},
+  "key_moments": [...],
+  "recommendations": {...},
+  "storage": {
+    "video_url": "...",
+    "json_url": "...",
+    "annotated_frames": [...]
+  }
+}
+```
+
+### GET `/health`  
+Returns service/model/storage status.
+
+### GET `/results/{video_id}`  
+Returns stored tactical analysis JSON.
+
+---
+
+## Testing
+
+```bash
+pytest tests/
+```
+
+---
+
+## Folder Structure
+
+```
 tahleel-ai-yolox-api/
-├── main.py                      # FastAPI entry point, defines API endpoints
-├── requirements.txt             # Python dependencies (see previous code)
-├── Dockerfile                   # Containerization for Cloud Run/Render
-├── .dockerignore                # Ignore files for Docker build
-├── .gitignore                   # Git ignore file
-├── README.md                    # Documentation, setup, API usage
-│
-├── components/                  # Core business logic modules
-│   ├── __init__.py
-│   ├── frame_extractor.py       # Frame extraction: OpenCV, GCS upload
-│   ├── yolox_detector.py        # YOLOX-S detection, team color clustering, tracking
-│   └── tactical_processor.py    # Converts detection to tactical JSON
-│
+├── main.py
+├── requirements.txt
+├── Dockerfile
+├── components/
+│   ├── frame_extractor.py
+│   ├── yolox_detector.py
+│   └── tactical_processor.py
 ├── models/
-│   └── download_weights.py      # Downloads YOLOX-S weights for inference
-│
-├── utils/                       # Utility modules
-│   ├── __init__.py
-│   ├── cloud_storage.py         # GCS integration: upload/download files
-│   └── validators.py            # Video validation: format, length, size
-│
-├── tests/                       # Automated test suite
-│   └── test_api.py              # API endpoint tests (pytest)
-│
-└── .env.example                 # Example environment variables (GCS, API keys, etc.)
-
+│   └── download_weights.py
+├── utils/
+│   ├── cloud_storage.py
+│   ├── supabase.py
+│   └── validators.py
+├── tests/
+│   └── test_api.py
+├── .env.example
+└── README.md
+```
 
 ---
 
-## 🏆 Critical Standards
+## Notes
 
-- **Business Value:** All code delivers tactical advantage for Arab League teams.
-- **Reliability:** 99% uptime, 5-min analysis speed.
-- **Scalability:** Supports multiple coaches, 10TB+ video storage.
-- **Security:** Role-based access, JWT, no public exposure of sensitive data.
-
----
-
-## 🚨 Support
-
-- Email: support@tahleel.ai
-- Docs: https://docs.tahleel.ai
-- Owner: Syed (Auwire Technologies)
+- **NO MOCK DATA** — All endpoints use real video, real analysis.
+- **Dual Save** — Results stored in both GCS and Supabase for reliability.
+- **For business launch:** 5-minute analysis, 99% uptime, enterprise security.
+- **Frontend:** React calls API via HTTPS, JWT required.
 
 ---
 
-## ❗ Final Reminder
+## Support
 
-**NO MOCK DATA.  
-NO PROTOTYPES.  
-REAL AI, REAL ANALYSIS, REAL BUSINESS VALUE.  
-LAUNCH-READY FOR ARAB LEAGUE.**
+For help, contact Syed (Auwire Technologies):  
+**Email:** support@tahleel.ai  
+**Docs:** https://docs.tahleel.ai
+
+---
