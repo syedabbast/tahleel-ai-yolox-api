@@ -1,8 +1,7 @@
-FROM python:3.10-slim
+FROM python:3.9-slim
 
 WORKDIR /app
 
-# Install system dependencies (add cmake here!)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         build-essential \
