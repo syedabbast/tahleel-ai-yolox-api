@@ -9,6 +9,7 @@ RUN apt-get update && \
         libsm6 \
         libxext6 \
         cmake \
+        protobuf-compiler \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --upgrade pip
