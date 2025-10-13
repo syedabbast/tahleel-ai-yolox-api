@@ -7,6 +7,11 @@ FROM python:3.10-slim
 WORKDIR /app
 
 # Install system dependencies
+RUN pip install --upgrade pip && \
+    pip install torch==2.1.2 && \
+    pip install fastapi==0.109.0 uvicorn[standard]==0.27.0 python-multipart==0.0.6 opencv-python==4.9.0.80 numpy==1.24.3 scikit-learn==1.3.2 pandas==2.1.4 scipy==1.11.4 google-cloud-storage==2.14.0 Pillow==10.2.0 motpy==0.0.10 pytest==7.4.3 httpx==0.25.2 && \
+    pip install yolox==0.3.0
+
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         build-essential \
