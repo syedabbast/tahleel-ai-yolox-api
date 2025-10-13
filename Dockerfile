@@ -6,12 +6,7 @@ FROM python:3.10-slim
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies
-RUN pip install --upgrade pip && \
-    pip install torch==2.1.2 && \
-    pip install fastapi==0.109.0 uvicorn[standard]==0.27.0 python-multipart==0.0.6 opencv-python==4.9.0.80 numpy==1.24.3 scikit-learn==1.3.2 pandas==2.1.4 scipy==1.11.4 google-cloud-storage==2.14.0 Pillow==10.2.0 motpy==0.0.10 pytest==7.4.3 httpx==0.25.2 && \
-    pip install yolox==0.3.0
-
+# Install system dependencies (build tools, ffmpeg, OpenCV dependencies)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         build-essential \
@@ -20,17 +15,25 @@ RUN apt-get update && \
         libxext6 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install
-COPY requirements.txt .
+# Upgrade pip
 RUN pip install --upgrade pip
-RUN pip install -r requirements.txt
 
-# Copy app code
+# Install torch first for yolox compilation
+RUN pip install torch==2.1.2 --no-cache-dir
+
+# Install all other Python dependencies in one step (except yolox)
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Install yolox after torch is present (also in requirements.txt for clarity, but safe to repeat)
+RUN pip install yolox==0.3.0 --no-cache-dir
+
+# Copy the full source code into the container
 COPY . .
 
-# Download YOLOX-S weights (if not present)
+# Download YOLOX-S weights if not present (ignore error if script missing)
 RUN mkdir -p models && \
-    python models/download_weights.py || true
+    (python models/download_weights.py || true)
 
 # Expose FastAPI port
 EXPOSE 8000
@@ -39,4 +42,4 @@ EXPOSE 8000
 ENV PYTHONUNBUFFERED=1
 
 # Run FastAPI app
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "mian:app", "--host", "0.0.0.0", "--port", "8000"]
