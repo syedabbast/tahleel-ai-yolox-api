@@ -10,6 +10,8 @@ RUN apt-get update && \
         libxext6 \
         cmake \
         protobuf-compiler \
+        libprotobuf-dev \
+        libprotoc-dev \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --upgrade pip
