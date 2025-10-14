@@ -2,33 +2,27 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        build-essential \
-        ffmpeg \
-        libsm6 \
-        libxext6 \
-        cmake \
-        protobuf-compiler \
-        libprotobuf-dev \
-        libprotoc-dev \
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    libsm6 \
+    libxext6 \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --upgrade pip
-
-RUN pip install torch==2.1.2 --no-cache-dir
-
+# Install Python packages
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-RUN pip install yolox==0.3.0 --no-cache-dir
-
+# Copy code
 COPY . .
 
-RUN mkdir -p models && \
-    (python models/download_weights.py || true)
+# Download YOLOX weights (if needed)
+RUN mkdir -p models
 
-EXPOSE 8000
+EXPOSE 8080
+
+ENV PORT=8080
 ENV PYTHONUNBUFFERED=1
 
-CMD ["uvicorn", "mian:app", "--host", "0.0.0.0", "--port", "8000"]
+# CRITICAL FIX: Use correct filename
+CMD uvicorn main:app --host 0.0.0.0 --port $PORT
