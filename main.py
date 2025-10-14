@@ -1,6 +1,7 @@
 """
-TAHLEEL.ai YOLOX Tactical Analysis API - FastAPI Production
-August 12, 2025 - Arab League Launch Version
+TAHLEEL.ai Basic API - October 14, 2025
+Syed (Auwire Technologies)
+Phase 1: File upload + GCS storage (YOLOX integration later)
 """
 
 import os
@@ -9,74 +10,79 @@ import time
 from fastapi import FastAPI, File, UploadFile, HTTPException, Header
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 
-from components.frame_extractor import extract_frames
-from components.yolox_detector import run_yolox_detection
-from components.tactical_processor import process_tactical_analysis
-
-# ---- FastAPI setup ----
 app = FastAPI(title="TAHLEEL.ai API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Restrict in production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ---- Auth ----
-def verify_auth(authorization: str = Header(None)):
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing API token")
-    return True
-
-# ---- Health ----
+# Health check
 @app.get("/health")
 def health():
     return {
         "status": "healthy",
-        "service": "TAHLEEL.ai",
-        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
+        "service": "TAHLEEL.ai Basic API",
+        "version": "1.0.0",
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "message": "Ready for video uploads - YOLOX integration coming next"
     }
 
-# ---- Analyze ----
-@app.post("/analyze")
-async def analyze_video(
-    video: UploadFile = File(...),
-    auth: bool = Header(default=False, alias="Authorization")
-):
-    start_time = time.time()
-    
-    # Save video temporarily
-    video_id = str(uuid.uuid4())
-    temp_path = f"/tmp/{video_id}.mp4"
-    
-    with open(temp_path, "wb") as f:
-        content = await video.read()
-        f.write(content)
-    
-    # Extract frames
-    frames, metadata = extract_frames(f"file://{temp_path}", fps=5, resize=(1280, 720))
-    
-    # YOLOX detection
-    detections = run_yolox_detection(frames)
-    
-    # Tactical analysis
-    metadata["processing_time"] = int(time.time() - start_time)
-    tactical_json = process_tactical_analysis(video_id, detections, metadata)
-    
-    # Cleanup
-    os.remove(temp_path)
-    
-    return JSONResponse(content=tactical_json)
+# Upload video
+@app.post("/upload")
+async def upload_video(video: UploadFile = File(...)):
+    """Upload video to GCS"""
+    try:
+        from utils.cloud_storage import upload_video_to_gcs
+        
+        video_id = str(uuid.uuid4())
+        gcs_url = await upload_video_to_gcs(video, video_id)
+        
+        if not gcs_url:
+            raise HTTPException(status_code=500, detail="Upload failed")
+        
+        return JSONResponse(content={
+            "success": True,
+            "video_id": video_id,
+            "gcs_url": gcs_url,
+            "message": "Video uploaded successfully. Analysis will be available soon.",
+            "status": "uploaded"
+        })
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-# ---- Get Results ----
+# Analyze endpoint (placeholder for now)
+@app.post("/analyze")
+async def analyze_video(video: UploadFile = File(...)):
+    """Accept video for analysis (YOLOX integration coming)"""
+    try:
+        from utils.cloud_storage import upload_video_to_gcs
+        
+        video_id = str(uuid.uuid4())
+        gcs_url = await upload_video_to_gcs(video, video_id)
+        
+        # Placeholder response
+        return JSONResponse(content={
+            "status": "success",
+            "video_id": video_id,
+            "gcs_url": gcs_url,
+            "message": "Video received. YOLOX processing will be integrated next.",
+            "processing_status": "queued",
+            "estimated_time": "5 minutes (once YOLOX integrated)"
+        })
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Get results
 @app.get("/results/{video_id}")
 def get_results(video_id: str):
-    from utils.cloud_storage import get_analysis_result_from_gcs
-    result = get_analysis_result_from_gcs(video_id)
-    if not result:
-        raise HTTPException(status_code=404, detail="Not found")
-    return JSONResponse(content=result)
+    """Get analysis results"""
+    return JSONResponse(content={
+        "status": "processing",
+        "video_id": video_id,
+        "message": "YOLOX analysis integration coming next"
+    })
