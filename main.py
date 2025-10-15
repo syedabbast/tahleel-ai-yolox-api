@@ -1,13 +1,12 @@
 """
-TAHLEEL.ai Basic API - October 14, 2025
-Syed (Auwire Technologies)
-Phase 1: File upload + GCS storage (YOLOX integration later)
+TAHLEEL.ai API - Phase 1: Upload + Frame Extraction
+October 14, 2025 - YOLOX integration in progress
 """
 
 import os
 import uuid
 import time
-from fastapi import FastAPI, File, UploadFile, HTTPException, Header
+from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -21,18 +20,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Health check
 @app.get("/health")
 def health():
     return {
         "status": "healthy",
-        "service": "TAHLEEL.ai Basic API",
+        "service": "TAHLEEL.ai API - Phase 1",
         "version": "1.0.0",
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "message": "Ready for video uploads - YOLOX integration coming next"
+        "features": {
+            "upload": "ready",
+            "frame_extraction": "ready",
+            "yolox": "deploying"
+        }
     }
 
-# Upload video
 @app.post("/upload")
 async def upload_video(video: UploadFile = File(...)):
     """Upload video to GCS"""
@@ -49,40 +50,45 @@ async def upload_video(video: UploadFile = File(...)):
             "success": True,
             "video_id": video_id,
             "gcs_url": gcs_url,
-            "message": "Video uploaded successfully. Analysis will be available soon.",
+            "message": "Video uploaded - frame extraction ready",
             "status": "uploaded"
         })
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# Analyze endpoint (placeholder for now)
 @app.post("/analyze")
 async def analyze_video(video: UploadFile = File(...)):
-    """Accept video for analysis (YOLOX integration coming)"""
+    """Upload and extract frames (YOLOX coming next)"""
     try:
         from utils.cloud_storage import upload_video_to_gcs
+        from components.frame_extractor import extract_frames
         
         video_id = str(uuid.uuid4())
-        gcs_url = await upload_video_to_gcs(video, video_id)
         
-        # Placeholder response
+        # Upload video
+        gcs_url = await upload_video_to_gcs(video, video_id)
+        if not gcs_url:
+            raise HTTPException(status_code=500, detail="Upload failed")
+        
+        # Extract frames
+        frames, metadata = extract_frames(gcs_url, fps=5, resize=(1280, 720))
+        
         return JSONResponse(content={
             "status": "success",
             "video_id": video_id,
             "gcs_url": gcs_url,
-            "message": "Video received. YOLOX processing will be integrated next.",
-            "processing_status": "queued",
-            "estimated_time": "5 minutes (once YOLOX integrated)"
+            "frames_extracted": len(frames),
+            "metadata": metadata,
+            "message": "Frames extracted - YOLOX processing next",
+            "next_step": "YOLOX detection"
         })
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# Get results
 @app.get("/results/{video_id}")
 def get_results(video_id: str):
-    """Get analysis results"""
     return JSONResponse(content={
         "status": "processing",
         "video_id": video_id,
-        "message": "YOLOX analysis integration coming next"
+        "message": "YOLOX integration in progress"
     })
