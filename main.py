@@ -1,6 +1,6 @@
 """
-TAHLEEL.ai API - Phase 3: Frame Extraction + YOLOX Detection
-October 14, 2025
+TAHLEEL.ai API - Phase 3.5: Return Full Detection Data
+October 15, 2025
 """
 
 import os
@@ -24,13 +24,14 @@ app.add_middleware(
 def health():
     return {
         "status": "healthy",
-        "service": "TAHLEEL.ai API - Phase 3",
+        "service": "TAHLEEL.ai API - Phase 3.5",
         "version": "1.0.0",
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
         "features": {
             "upload": "ready",
             "frame_extraction": "ready",
-            "yolox_detection": "ready"
+            "yolox_detection": "ready",
+            "full_detections": "ready"
         }
     }
 
@@ -58,9 +59,9 @@ async def upload_video(video: UploadFile = File(...)):
 
 @app.post("/analyze")
 async def analyze_video(video: UploadFile = File(...)):
-    """Full pipeline: Upload → Extract Frames → YOLOX Detection"""
+    """Full pipeline: Upload → Extract Frames → YOLOX Detection → Return ALL data"""
     try:
-        from utils.cloud_storage import upload_video_to_gcs
+        from utils.cloud_storage import upload_video_to_gcs, upload_json_to_gcs
         from components.frame_extractor import extract_frames
         from components.yolox_detector import run_yolox_detection
         
@@ -85,7 +86,8 @@ async def analyze_video(video: UploadFile = File(...)):
             len(d['player_detections']) for d in detections
         )
         
-        return JSONResponse(content={
+        # Build complete response with FULL detection data
+        analysis_result = {
             "status": "success",
             "video_id": video_id,
             "gcs_url": gcs_url,
@@ -97,16 +99,49 @@ async def analyze_video(video: UploadFile = File(...)):
                 "frames_processed": len(detections),
                 "avg_players_per_frame": total_players_detected / len(detections) if detections else 0
             },
-            "message": "Video analysis complete!",
+            "detections": detections[:10],  # First 10 frames (full data too large for response)
+            "message": "Video analysis complete with full detection data!",
+            "storage": {
+                "video_url": gcs_url,
+                "frames_folder": f"gs://tahleel-ai-videos/frames/{video_id}/",
+                "detections_json": f"gs://tahleel-ai-videos/results/{video_id}-detections.json"
+            },
             "next_step": "Claude AI tactical analysis"
-        })
+        }
+        
+        # Save full detections to GCS for Claude AI to read
+        upload_json_to_gcs(
+            {"detections": detections, "metadata": metadata},
+            f"{video_id}-detections"
+        )
+        
+        return JSONResponse(content=analysis_result)
+        
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/results/{video_id}")
 def get_results(video_id: str):
-    return JSONResponse(content={
-        "status": "complete",
-        "video_id": video_id,
-        "message": "Analysis pipeline ready for Claude AI"
-    })
+    """Get full analysis results from GCS"""
+    try:
+        from utils.cloud_storage import get_analysis_result_from_gcs
+        
+        # Try to get detections
+        detections_data = get_analysis_result_from_gcs(f"{video_id}-detections")
+        
+        if detections_data:
+            return JSONResponse(content={
+                "status": "complete",
+                "video_id": video_id,
+                "data": detections_data,
+                "message": "Full detection data available"
+            })
+        else:
+            return JSONResponse(content={
+                "status": "not_found",
+                "video_id": video_id,
+                "message": "Analysis not found or still processing"
+            })
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
