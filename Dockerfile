@@ -2,12 +2,13 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
-# Install system dependencies for YOLOX
+# Install system dependencies for YOLOX (ADD CMAKE)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     libsm6 \
     libxext6 \
     build-essential \
+    cmake \
     wget \
     curl \
     && rm -rf /var/lib/apt/lists/*
@@ -32,7 +33,7 @@ COPY . .
 # Create directories
 RUN mkdir -p models frames
 
-# YOLOx-M weights downloaded at runtime from GCS (avoids Docker image bloat)
+# YOLOx-M weights downloaded at runtime from GCS
 
 EXPOSE 8080
 
