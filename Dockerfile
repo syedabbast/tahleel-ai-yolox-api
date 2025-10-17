@@ -9,23 +9,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxext6 \
     build-essential \
     wget \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Upgrade pip
 RUN pip install --upgrade pip
 
-# Install PyTorch (CPU version - lighter and faster to build)
+# Install PyTorch CPU version (OFFICIAL METHOD)
 RUN pip install --no-cache-dir \
-    torch==2.1.2+cpu \
-    torchvision==0.16.2+cpu \
-    -f https://download.pytorch.org/whl/torch_stable.html
+    torch==2.1.2 \
+    torchvision==0.16.2 \
+    torchaudio==2.1.2 \
+    --index-url https://download.pytorch.org/whl/cpu
 
 # Copy and install requirements
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-
-# Install YOLOX (without building from source)
-RUN pip install --no-cache-dir yolox==0.3.0 --no-deps
 
 # Copy application
 COPY . .
@@ -33,9 +32,7 @@ COPY . .
 # Create directories
 RUN mkdir -p models frames
 
-# Download YOLOX nano weights
-RUN wget -q https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_nano.pth \
-    -O models/yolox_nano.pth || echo "Will download at runtime"
+# YOLOx-M weights downloaded at runtime from GCS (avoids Docker image bloat)
 
 EXPOSE 8080
 
