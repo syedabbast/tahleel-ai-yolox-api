@@ -1,9 +1,8 @@
-# Use base Python image
 FROM python:3.9-slim
 
 WORKDIR /app
 
-# Install system dependencies + build tools
+# Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     libgl1 \
@@ -14,16 +13,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY requirements.txt .
 
-# Install dependencies
+# Install PyTorch CPU version from official repo
 RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir torch==2.0.1+cpu torchvision==0.15.2+cpu --index-url https://download.pytorch.org/whl/cpu && \
     pip install --no-cache-dir -r requirements.txt
 
-# Clone YOLOx repo (don't install, just use source)
+# Clone YOLOx repo
 RUN git clone https://github.com/Megvii-BaseDetection/YOLOX.git /yolox && \
     cd /yolox && \
     git checkout 0.3.0
 
-# Add YOLOx to Python path (use without installing)
 ENV PYTHONPATH="${PYTHONPATH}:/yolox"
 
 COPY . .
