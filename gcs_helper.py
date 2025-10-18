@@ -17,8 +17,8 @@ def upload_file(local_path, gcs_path, bucket_name=None):
     bucket = client.bucket(bucket_name)
     blob = bucket.blob(gcs_path)
     blob.upload_from_filename(local_path)
-    blob.make_public()
-    return blob.public_url
+    # Return GCS URI instead of public URL
+    return f"gs://{bucket_name}/{gcs_path}"
 
 def upload_bytes(data, gcs_path, bucket_name=None):
     bucket_name = bucket_name or GCS_BUCKET_NAME
@@ -26,8 +26,7 @@ def upload_bytes(data, gcs_path, bucket_name=None):
     bucket = client.bucket(bucket_name)
     blob = bucket.blob(gcs_path)
     blob.upload_from_string(data)
-    blob.make_public()
-    return blob.public_url
+    return f"gs://{bucket_name}/{gcs_path}"
 
 def download_file(gcs_path, local_path, bucket_name=None):
     bucket_name = bucket_name or GCS_BUCKET_NAME
