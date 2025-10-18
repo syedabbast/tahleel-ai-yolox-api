@@ -6,6 +6,7 @@ Author: Syed (Auwire Technologies)
 """
 
 import os
+import sys
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from gcs_helper import upload_file, download_file, list_files
@@ -13,23 +14,75 @@ import torch
 import cv2
 from PIL import Image
 import tempfile
+from google.cloud import storage
+
+# Add YOLOx to path
+sys.path.insert(0, '/yolox')
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-# Load YOLOX model (nano for speed)
-YOLOX_WEIGHTS = os.environ.get("YOLOX_WEIGHTS", "yolox_nano.pth")
-YOLOX_MODEL_NAME = os.environ.get("YOLOX_MODEL_NAME", "yolox-nano")
+# YOLOx configuration
+YOLOX_WEIGHTS = os.environ.get("YOLOX_WEIGHTS", "gs://tahleel-ai-videos/models/yolox_m.pth")
+YOLOX_MODEL_NAME = os.environ.get("YOLOX_MODEL_NAME", "yolox-m")
+
+def download_model_from_gcs(gcs_path, local_path):
+    """Download YOLOx weights from GCS"""
+    if os.path.exists(local_path):
+        print(f"✅ Model already exists at {local_path}")
+        return local_path
+    
+    print(f"📥 Downloading model from {gcs_path}")
+    
+    # Parse GCS path
+    if gcs_path.startswith("gs://"):
+        gcs_path = gcs_path[5:]  # Remove gs://
+    
+    parts = gcs_path.split("/", 1)
+    bucket_name = parts[0]
+    blob_name = parts[1] if len(parts) > 1 else ""
+    
+    # Download from GCS
+    client = storage.Client()
+    bucket = client.bucket(bucket_name)
+    blob = bucket.blob(blob_name)
+    blob.download_to_filename(local_path)
+    
+    print(f"✅ Model downloaded to {local_path}")
+    return local_path
 
 def load_yolox_model():
-    # Placeholder: replace with actual YOLOX load for real implementation
-    # Example:
-    # model = torch.hub.load('Megvii-BaseDetection/YOLOX', YOLOX_MODEL_NAME, pretrained=False)
-    # model.load_state_dict(torch.load(YOLOX_WEIGHTS, map_location='cpu'))
-    # model.eval()
-    # return model
-    return None
+    """Load REAL YOLOx model"""
+    try:
+        print("🔄 Loading YOLOx model...")
+        
+        # Import YOLOx
+        from yolox.exp import get_exp
+        
+        # Download weights from GCS
+        local_weights = "/tmp/yolox_m.pth"
+        download_model_from_gcs(YOLOX_WEIGHTS, local_weights)
+        
+        # Load model
+        exp = get_exp(None, YOLOX_MODEL_NAME)
+        model = exp.get_model()
+        
+        # Load weights
+        ckpt = torch.load(local_weights, map_location="cpu")
+        model.load_state_dict(ckpt["model"])
+        model.eval()
+        
+        print("✅ YOLOx model loaded successfully!")
+        return model
+        
+    except Exception as e:
+        print(f"❌ Error loading YOLOx: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return None
 
+# Load model on startup
+print("🚀 Initializing YOLOx model...")
 yolox_model = load_yolox_model()
 
 @app.route("/health", methods=["GET"])
@@ -39,7 +92,7 @@ def health_check():
         "service": "TAHLEEL.ai GCP backend",
         "yolox_loaded": yolox_model is not None,
         "bucket": os.environ.get("GCS_BUCKET_NAME", "tahleel-ai-videos"),
-        "timestamp": str(os.environ.get("CURRENT_TIMESTAMP", "")),
+        "timestamp": "",
     })
 
 @app.route("/upload", methods=["POST"])
@@ -57,6 +110,9 @@ def upload_video():
 
 @app.route("/analyze", methods=["POST"])
 def analyze_video():
+    if yolox_model is None:
+        return jsonify({"error": "YOLOx model not loaded"}), 500
+        
     data = request.get_json()
     gcs_path = data.get("gcs_path")
     if not gcs_path:
@@ -78,9 +134,14 @@ def analyze_video():
         if not ret:
             break
         if frame_count % sampling_rate == 0:
-            # Placeholder: run YOLOX detection
-            # result = yolox_model(frame) if yolox_model else {}
-            result = {"frame": frame_count, "detections": []}
+            # REAL YOLOx detection
+            with torch.no_grad():
+                outputs = yolox_model(torch.from_numpy(frame).permute(2, 0, 1).unsqueeze(0).float())
+            
+            result = {
+                "frame": frame_count,
+                "detections": outputs.tolist() if outputs is not None else []
+            }
             frame_results.append(result)
         frame_count += 1
     cap.release()
@@ -91,13 +152,10 @@ def analyze_video():
         "frames_analyzed": len(frame_results),
         "frame_results": frame_results,
         "gcs_path": gcs_path,
-        "message": "Analysis complete (REAL video, mock detection - replace with YOLOX, GPT Vision, Claude)"
+        "message": "REAL YOLOx detection complete"
     })
 
 @app.route("/frames/<prefix>", methods=["GET"])
 def list_frames(prefix):
     files = list_files(f"frames/{prefix}")
     return jsonify({"frames": files})
-
-# Gunicorn will run: app:app
-# No need for __main__ block in Cloud Run
