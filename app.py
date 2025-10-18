@@ -26,7 +26,8 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 # YOLOx configuration
 YOLOX_WEIGHTS = os.environ.get("YOLOX_WEIGHTS", "gs://tahleel-ai-videos/models/yolox_m.pth")
 YOLOX_MODEL_NAME = os.environ.get("YOLOX_MODEL_NAME", "yolox-m")
-YOLOX_INPUT_SIZE = (640, 640)  # YOLOx-M expects 640x640
+YOLOX_INPUT_SIZE = (640, 640)
+CONFIDENCE_THRESHOLD = 0.5  # Filter low confidence detections
 
 def download_model_from_gcs(gcs_path, local_path):
     """Download YOLOx weights from GCS"""
@@ -38,7 +39,7 @@ def download_model_from_gcs(gcs_path, local_path):
     
     # Parse GCS path
     if gcs_path.startswith("gs://"):
-        gcs_path = gcs_path[5:]  # Remove gs://
+        gcs_path = gcs_path[5:]
     
     parts = gcs_path.split("/", 1)
     bucket_name = parts[0]
@@ -85,15 +86,32 @@ def load_yolox_model():
 
 def preprocess_frame(frame, input_size=(640, 640)):
     """Preprocess frame for YOLOx inference"""
-    # Resize frame
     img = cv2.resize(frame, input_size)
-    # Convert BGR to RGB
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    # Normalize to [0, 1]
     img = img.astype(np.float32) / 255.0
-    # Convert to tensor [1, 3, H, W]
     img_tensor = torch.from_numpy(img).permute(2, 0, 1).unsqueeze(0)
     return img_tensor
+
+def postprocess_detections(outputs, conf_threshold=0.5):
+    """Filter YOLOx outputs by confidence threshold"""
+    if outputs is None or len(outputs) == 0:
+        return []
+    
+    detections = []
+    output = outputs[0].cpu().numpy()
+    
+    # YOLOx output format: [x, y, w, h, obj_conf, class_conf, class_id]
+    for det in output:
+        if len(det) >= 5:
+            confidence = det[4]  # objectness score
+            if confidence >= conf_threshold:
+                detections.append({
+                    "bbox": det[:4].tolist(),
+                    "confidence": float(confidence),
+                    "class": int(det[6]) if len(det) > 6 else 0
+                })
+    
+    return detections
 
 # Load model on startup
 print("🚀 Initializing YOLOx model...")
@@ -151,25 +169,22 @@ def analyze_video():
             break
         if frame_count % sampling_rate == 0:
             try:
-                # REAL YOLOx detection with proper preprocessing
+                # REAL YOLOx detection
                 img_tensor = preprocess_frame(frame, YOLOX_INPUT_SIZE)
                 
                 with torch.no_grad():
                     outputs = yolox_model(img_tensor)
                 
-                # Extract detections (outputs is a tuple)
-                if outputs is not None and len(outputs) > 0:
-                    detection_result = outputs[0].cpu().numpy().tolist()
-                else:
-                    detection_result = []
+                # Filter detections by confidence
+                filtered_detections = postprocess_detections(outputs, CONFIDENCE_THRESHOLD)
                 
                 result = {
                     "frame": frame_count,
-                    "detections": detection_result,
-                    "num_detections": len(detection_result) if detection_result else 0
+                    "detections": filtered_detections,
+                    "num_detections": len(filtered_detections)
                 }
                 frame_results.append(result)
-                print(f"✅ Frame {frame_count}: {len(detection_result) if detection_result else 0} detections")
+                print(f"✅ Frame {frame_count}: {len(filtered_detections)} detections (conf > {CONFIDENCE_THRESHOLD})")
                 
             except Exception as e:
                 print(f"❌ Error processing frame {frame_count}: {str(e)}")
@@ -193,6 +208,7 @@ def analyze_video():
         "total_frames": frame_count,
         "frame_results": frame_results,
         "gcs_path": gcs_path,
+        "confidence_threshold": CONFIDENCE_THRESHOLD,
         "message": "REAL YOLOx detection complete"
     })
 
