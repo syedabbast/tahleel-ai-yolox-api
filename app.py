@@ -12,6 +12,7 @@ from flask_cors import CORS
 from gcs_helper import upload_file, download_file, list_files
 import torch
 import cv2
+import numpy as np
 from PIL import Image
 import tempfile
 from google.cloud import storage
@@ -25,6 +26,7 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 # YOLOx configuration
 YOLOX_WEIGHTS = os.environ.get("YOLOX_WEIGHTS", "gs://tahleel-ai-videos/models/yolox_m.pth")
 YOLOX_MODEL_NAME = os.environ.get("YOLOX_MODEL_NAME", "yolox-m")
+YOLOX_INPUT_SIZE = (640, 640)  # YOLOx-M expects 640x640
 
 def download_model_from_gcs(gcs_path, local_path):
     """Download YOLOx weights from GCS"""
@@ -81,6 +83,18 @@ def load_yolox_model():
         traceback.print_exc()
         return None
 
+def preprocess_frame(frame, input_size=(640, 640)):
+    """Preprocess frame for YOLOx inference"""
+    # Resize frame
+    img = cv2.resize(frame, input_size)
+    # Convert BGR to RGB
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    # Normalize to [0, 1]
+    img = img.astype(np.float32) / 255.0
+    # Convert to tensor [1, 3, H, W]
+    img_tensor = torch.from_numpy(img).permute(2, 0, 1).unsqueeze(0)
+    return img_tensor
+
 # Load model on startup
 print("🚀 Initializing YOLOx model...")
 yolox_model = load_yolox_model()
@@ -129,27 +143,54 @@ def analyze_video():
     frame_count = 0
     sampling_rate = 30
 
+    print(f"📹 Processing video: {gcs_path}")
+    
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
             break
         if frame_count % sampling_rate == 0:
-            # REAL YOLOx detection
-            with torch.no_grad():
-                outputs = yolox_model(torch.from_numpy(frame).permute(2, 0, 1).unsqueeze(0).float())
-            
-            result = {
-                "frame": frame_count,
-                "detections": outputs.tolist() if outputs is not None else []
-            }
-            frame_results.append(result)
+            try:
+                # REAL YOLOx detection with proper preprocessing
+                img_tensor = preprocess_frame(frame, YOLOX_INPUT_SIZE)
+                
+                with torch.no_grad():
+                    outputs = yolox_model(img_tensor)
+                
+                # Extract detections (outputs is a tuple)
+                if outputs is not None and len(outputs) > 0:
+                    detection_result = outputs[0].cpu().numpy().tolist()
+                else:
+                    detection_result = []
+                
+                result = {
+                    "frame": frame_count,
+                    "detections": detection_result,
+                    "num_detections": len(detection_result) if detection_result else 0
+                }
+                frame_results.append(result)
+                print(f"✅ Frame {frame_count}: {len(detection_result) if detection_result else 0} detections")
+                
+            except Exception as e:
+                print(f"❌ Error processing frame {frame_count}: {str(e)}")
+                result = {
+                    "frame": frame_count,
+                    "detections": [],
+                    "error": str(e)
+                }
+                frame_results.append(result)
+                
         frame_count += 1
+    
     cap.release()
     os.remove(temp_path)
+
+    print(f"✅ Analysis complete: {len(frame_results)} frames processed")
 
     return jsonify({
         "success": True,
         "frames_analyzed": len(frame_results),
+        "total_frames": frame_count,
         "frame_results": frame_results,
         "gcs_path": gcs_path,
         "message": "REAL YOLOx detection complete"
